@@ -18,7 +18,9 @@ from scipy.signal import argrelextrema
 @cython.boundscheck(False)
 @cython.initializedcheck(False)
 def allowed_transition(a, b):
-    
+    """
+    Tests whether a walker on the OPN is allowed to transition from node a to b. 
+    """
     a_star = a[1:]
     b_star = b[:-1]
     
@@ -35,7 +37,21 @@ def allowed_transition(a, b):
 @cython.wraparound(False)
 @cython.initializedcheck(False)
 def perm_embedding(double[:] ts, int dim, int lag):
+    """
+    Constructs the permutation embedding from a given time-series.
     
+    Arguments:
+        ts:
+            A one-dimensional Numpy array with dtype = "double." The time-series. 
+        dim:
+            The integer embedding dimension.
+        lag:
+            The integer embedding lag.
+    
+    Returns:
+        series:
+            The permutation embedding of the original series ts. 
+    """
     cdef float[:,:] timestep = np.zeros((ts.shape[0]-lag*(dim-1), dim), dtype="single")
     cdef object[:] series = np.zeros((ts.shape[0]-lag*(dim-1))-1, dtype=object)
     cdef int t, d, s, i, x
@@ -58,7 +74,24 @@ def perm_embedding(double[:] ts, int dim, int lag):
 @cython.wraparound(False)
 @cython.initializedcheck(False)
 def OPN(double[:] ts, int dim, int lag):
+    """
+    Constructs the time-lagged, ordinal partition network from a given time-series.
+    
+    Arguments:
+        ts:
+            A one-dimensional Numpy array with dtype = "double." The time-series. 
+        dim:
+            The integer embedding dimension.
+        lag:
+            The integer embedding lag.
+    
+    Returns:
+        G:
+            A python-iGraph network.
+        series:
+            The permutation embedding of the original series ts. 
         
+    """
     cdef float[:,:] timestep = np.zeros((ts.shape[0]-lag*(dim-1), dim), dtype="single")
     cdef object[:] series = np.zeros((ts.shape[0]-lag*(dim-1))-1, dtype=object)
     cdef int t, d, s, i, x
@@ -96,6 +129,23 @@ def OPN(double[:] ts, int dim, int lag):
 @cython.initializedcheck(False)
 @cython.boundscheck(False)
 def optimal_lag(double[:] X, int lrange = 25):
+    """
+    Returns the embedding lag corresponding to the first zero of the autocorrelation function. See:
+        McCullough, M., Small, M., Stemler, T., & Iu, H. H.-C. (2015). 
+        Time lagged ordinal partition networks for capturing dynamics of continuous dynamical systems. 
+        Chaos: An Interdisciplinary Journal of Nonlinear Science, 25(5), 053101. 
+        https://doi.org/10.1063/1.4919075
+    
+    Arguments:
+        X:
+            A one-dimensional Numpy array with dtype = "double." The time-series.
+        lrange:
+            The range of possible embedding lags to try, from 1...drange.
+    
+    Returns:
+        lag:
+            The lag that gives the first zero of the autocorrelation function.. 
+    """
     
     cdef double[:] autocorr = np.ones(lrange-1)
     cdef int i 
@@ -112,7 +162,26 @@ def optimal_lag(double[:] X, int lrange = 25):
 @cython.wraparound(False)
 @cython.initializedcheck(False)
 def optimal_dim(double[:] X, int lag, int drange = 20):
+    """
+    Returns the embedding dimension that maximizes the variange in the degree distribution of the resulting OPN.
+    A proxy for the optimal embedding dimension. See:
+        McCullough, M., Small, M., Stemler, T., & Iu, H. H.-C. (2015). 
+        Time lagged ordinal partition networks for capturing dynamics of continuous dynamical systems. 
+        Chaos: An Interdisciplinary Journal of Nonlinear Science, 25(5), 053101. 
+        https://doi.org/10.1063/1.4919075
     
+    Arguments:
+        X:
+            A one-dimensional Numpy array with dtype = "double." The time-series.
+        lag:
+            The integer embedding lag.
+        drange:
+            The range of possible embedding dimensions to try, from 1...drange.
+    
+    Returns:
+        dim:
+            The embedding dimension that maximized the variance in the degree distribution of the resulting network. 
+    """
     cdef double[:] var = np.zeros(drange)
     cdef int i 
     
@@ -126,7 +195,28 @@ def optimal_dim(double[:] X, int lag, int drange = 20):
 @cython.wraparound(False)
 @cython.initializedcheck(False)
 def constrained_walk(G, int lag, int steps):
+    """
+    Returns a constrained, random walk on the OPN. 
+    This corresponds to a surrogate time-series, which preserves higher-order dynamics.
     
+    Based on the algorithm in:
+        McCullough, M., Sakellariou, K., Stemler, T., & Small, M. (2017). 
+        Regenerating time series from ordinal networks. 
+        Chaos: An Interdisciplinary Journal of Nonlinear Science, 27(3), 035814. 
+        https://doi.org/10.1063/1.4978743
+    
+    Arguments:
+        G:
+            A python-iGraph network returned from the OPN() function.
+        lag:
+            The integer temporal lag used to construct G.
+        steps:
+            The integer number of steps to run the walk.
+    
+    Returns:
+        If the walk is successful, returns an array of strings corresponding to steps in the walk.
+        If the walk is unnsucessful, returns None. 
+    """
     cdef object[:] walk = np.zeros(steps, dtype="object")
     cdef int i
     
