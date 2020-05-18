@@ -38,3 +38,5 @@ Algorithm taken from:
 
 ```McCullough, M., Sakellariou, K., Stemler, T., & Small, M. (2017). Regenerating time series from ordinal networks. Chaos: An Interdisciplinary Journal of Nonlinear Science, 27(3), 035814. https://doi.org/10.1063/1.4978743```
 
+## Cited By:
+```Varley, T. F., Denny, V., Sporns, O., & Patania, A. (2020). Topological Analysis of Differential Effects of Ketamine and Propofol Anesthesia on Brain Dynamics. BioRxiv, 2020.04.04.025437. https://doi.org/10.1101/2020.04.04.025437```
