@@ -125,7 +125,7 @@ def OPN(double[:] ts, int dim, int lag):
     
     return G, series 
 
-
+'''
 @cython.initializedcheck(False)
 @cython.boundscheck(False)
 def optimal_lag(double[:] X, int lrange = 25):
@@ -156,6 +156,17 @@ def optimal_lag(double[:] X, int lrange = 25):
     cdef long[:] extrema = argrelextrema(np.abs(autocorr), np.less)[0]
     
     return extrema[0]
+'''
+def optimal_lag(X, lrange=100, step=1):
+    autocorr = np.ones((lrange)//step)
+    pos = True
+    for i in range(1, autocorr.shape[0]):
+        if pos == True:
+            autocorr[i] = pearsonr(X[:-step*i], X[step*i:])[0]
+            if autocorr[i] < 0 and autocorr[i-1] > 0:
+                pos = False
+                extrema = i-1    
+    return extrema*step, autocorr[:i]
 
 
 @cython.boundscheck(False)
