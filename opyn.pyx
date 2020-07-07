@@ -168,7 +168,7 @@ def optimal_lag(X, lrange=100, step=1):
                 extrema = i-1    
     return extrema*step, autocorr[:i]
 
-
+'''
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.initializedcheck(False)
@@ -201,6 +201,17 @@ def optimal_dim(double[:] X, int lag, int drange = 20):
         var[i] = np.var(G.degree())
         
     return np.argmax(var)
+'''
+
+def optimal_dim(X, lag, drange=25):
+    
+    var = np.zeros(drange)
+    for i in range(2,drange):
+        if X.shape[0] - lag*(i-1) > 0:
+            G, s = OPN(X, i, lag)
+            var[i] = np.var(G.degree())
+    
+    return np.argmax(var), var
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
