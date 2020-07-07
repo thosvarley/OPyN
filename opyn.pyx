@@ -125,10 +125,10 @@ def OPN(double[:] ts, int dim, int lag):
     
     return G, series 
 
-'''
+
 @cython.initializedcheck(False)
 @cython.boundscheck(False)
-def optimal_lag(double[:] X, int lrange = 25):
+def optimal_lag(double[:] X, int lrange = 200, int step):
     """
     Returns the embedding lag corresponding to the first zero of the autocorrelation function. See:
         McCullough, M., Small, M., Stemler, T., & Iu, H. H.-C. (2015). 
@@ -141,34 +141,29 @@ def optimal_lag(double[:] X, int lrange = 25):
             A one-dimensional Numpy array with dtype = "double." The time-series.
         lrange:
             The range of possible embedding lags to try, from 1...drange.
+        step:
+            Whether to sample the entire lrange, or instead take it in steps of a given size. 
+            Computationally faster, but returns a less precise lag. 
     
     Returns:
         lag:
             The lag that gives the first zero of the autocorrelation function.. 
     """
+    cdef double[:] autocorr = np.ones((lrange)//step)
+    cdef bint pos = True
+    cdef int extrema = -1
+    cdef int i
     
-    cdef double[:] autocorr = np.ones(lrange-1)
-    cdef int i 
-    
-    for i in range(1,lrange-1):
-        autocorr[i] = pearsonr(X[:-i], X[i:])[0]
-    
-    cdef long[:] extrema = argrelextrema(np.abs(autocorr), np.less)[0]
-    
-    return extrema[0]
-'''
-def optimal_lag(X, lrange=100, step=1):
-    autocorr = np.ones((lrange)//step)
-    pos = True
     for i in range(1, autocorr.shape[0]):
         if pos == True:
             autocorr[i] = pearsonr(X[:-step*i], X[step*i:])[0]
             if autocorr[i] < 0 and autocorr[i-1] > 0:
                 pos = False
-                extrema = i-1    
-    return extrema*step, autocorr[:i]
+                extrema = i-1   
+                
+    return extrema*step
 
-'''
+
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.initializedcheck(False)
@@ -197,21 +192,12 @@ def optimal_dim(double[:] X, int lag, int drange = 20):
     cdef int i 
     
     for i in range(2, drange):
-        G, s = OPN(X, i, lag)
-        var[i] = np.var(G.degree())
-        
-    return np.argmax(var)
-'''
-
-def optimal_dim(X, lag, drange=25):
-    
-    var = np.zeros(drange)
-    for i in range(2,drange):
         if X.shape[0] - lag*(i-1) > 0:
             G, s = OPN(X, i, lag)
             var[i] = np.var(G.degree())
-    
-    return np.argmax(var), var
+        
+    return np.argmax(var)
+
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
