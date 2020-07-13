@@ -10,7 +10,7 @@ cimport cython
 import numpy as np
 cimport numpy as np 
 import igraph as ig 
-from itertools import product
+from itertools import product, permutations
 from scipy.stats import entropy, pearsonr
 from libc.math cimport log2
 from scipy.signal import argrelextrema
@@ -257,3 +257,58 @@ def constrained_walk(G, int lag, int steps):
             return None
         
     return walk
+
+#Make sure both OPNs have the same vertex sets, assigned to the same indices (this was hard!)
+
+def sort_networks(G1, G2):
+    
+    cdef int i
+    cdef list G1_nodes = [x["name"] for x in G1.vs]
+    cdef list G2_nodes = [x["name"] for x in G2.vs]
+    cdef np.ndarray union = np.union1d(G1_nodes, G2_nodes)
+    cdef np.ndarray G1_diff = np.setdiff1d(union, G1_nodes)
+    cdef np.ndarray G2_diff = np.setdiff1d(union, G2_nodes)
+    
+    G1.add_vertices(G1_diff)
+    G2.add_vertices(G2_diff)
+    
+    cdef dict G1_dict = { G1.vs[i]["name"] : i for i in range(G1.vcount()) }
+    cdef dict G2_dict = { G2.vs[i]["name"] : i for i in range(G2.vcount()) }
+    
+    cdef list keys1 = list(G1_dict.keys())
+    cdef list keys2 = list(G2_dict.keys())
+    keys1.sort()
+    keys2.sort()
+    
+    cdef list sort1 = [G1_dict[i] for i in keys1]
+    cdef list sort2 = [G2_dict[i] for i in keys2]
+    cdef list perm1 = [i for i in np.argsort(sort1)]
+    cdef list perm2 = [i for i in np.argsort(sort2)]
+        
+    G1 = G1.permute_vertices(perm1)
+    G2 = G2.permute_vertices(perm2)
+    
+    return G1, G2
+
+
+def full_OPN_space(G):
+    """
+    Adds all the missing states to an OPN as isolated nodes (in/out-degree = 0)
+    Use with care - for OPNs with high embedding dimensions, the space explodes with N!
+    Don't use above D ~ 8 or so.
+    """
+    cdef list G_nodes = [x["name"] for x in G.vs]
+    cdef list perms = ["".join(x) for x in permutations(G.vs[0]["name"])]
+    cdef np.ndarray diff = np.setdiff1d(perms, G_nodes)
+    
+    cdef int i
+    G.add_vertices(diff)
+    cdef dict G_dict = { G.vs[i]["name"] : i for i in range(G.vcount()) }
+    cdef list keys = list(G_dict.keys())
+    keys.sort()
+    cdef list sort = [G_dict[x] for x in keys]
+    cdef list perm = [x for x in np.argsort(sort)]
+        
+    G = G.permute_vertices(perm)
+    
+    return G
