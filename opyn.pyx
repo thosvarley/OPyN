@@ -14,6 +14,8 @@ from itertools import product, permutations
 from scipy.stats import entropy, pearsonr
 from libc.math cimport log2
 from scipy.signal import argrelextrema
+from sklearn.neighbors import KDTree
+
 
 @cython.boundscheck(False)
 @cython.initializedcheck(False)
@@ -36,13 +38,41 @@ def allowed_transition(a, b):
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.initializedcheck(False)
-def perm_embedding(double[:] ts, int dim, int lag):
+def embed_series(double[:] X, int dim, int lag):
+    """
+    Constructs a time-delay embedding of a continuous timeseries.
+    
+    Arguments:
+        X:
+            A one-dimensional Numpy array with dtype = "double."
+        dim:
+            The integer embedding dimension.
+        lag:
+            The integer embedding lag.
+    
+    Returns:
+        embedding:
+            The embedded series as a 2-dimensional array.
+    """
+    cdef float[:,:] timestep = np.zeros((X.shape[0]-lag*(dim-1), dim), dtype="single")
+    cdef int t, d, s, i, x
+    
+    for t in range(X.shape[0]-lag*(dim-1)):
+        for d in range(dim):
+            timestep[t][d] = X[t + d*lag]
+    
+    return timestep
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+@cython.initializedcheck(False)
+def perm_embedding(double[:] X, int dim, int lag):
     """
     Constructs the permutation embedding from a given time-series.
     
     Arguments:
-        ts:
-            A one-dimensional Numpy array with dtype = "double." The time-series. 
+        X:
+            A one-dimensional Numpy array with dtype = "double." 
         dim:
             The integer embedding dimension.
         lag:
@@ -52,13 +82,13 @@ def perm_embedding(double[:] ts, int dim, int lag):
         series:
             The permutation embedding of the original series ts. 
     """
-    cdef float[:,:] timestep = np.zeros((ts.shape[0]-lag*(dim-1), dim), dtype="single")
-    cdef object[:] series = np.zeros((ts.shape[0]-lag*(dim-1))-1, dtype=object)
+    cdef float[:,:] timestep = np.zeros((X.shape[0]-lag*(dim-1), dim), dtype="single")
+    cdef object[:] series = np.zeros((X.shape[0]-lag*(dim-1))-1, dtype=object)
     cdef int t, d, s, i, x
     
-    for t in range(ts.shape[0]-lag*(dim-1)):
+    for t in range(X.shape[0]-lag*(dim-1)):
         for d in range(dim):
-            timestep[t][d] = ts[t + d*lag]
+            timestep[t][d] = X[t + d*lag]
     
     sort = np.argsort(np.argsort(timestep, axis=1).astype("int32"))
     unique = np.unique(sort, axis=0)
@@ -128,7 +158,7 @@ def OPN(double[:] ts, int dim, int lag):
 
 @cython.initializedcheck(False)
 @cython.boundscheck(False)
-def optimal_lag(double[:] X, int lrange = 200, int step):
+def optimal_lag(double[:] X, int lrange, int step):
     """
     Returns the embedding lag corresponding to the first zero of the autocorrelation function. See:
         McCullough, M., Small, M., Stemler, T., & Iu, H. H.-C. (2015). 
@@ -167,7 +197,7 @@ def optimal_lag(double[:] X, int lrange = 200, int step):
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.initializedcheck(False)
-def optimal_dim(double[:] X, int lag, int drange = 20):
+def maximum_var(double[:] X, int lag, int drange = 20):
     """
     Returns the embedding dimension that maximizes the variange in the degree distribution of the resulting OPN.
     A proxy for the optimal embedding dimension. See:
@@ -198,6 +228,27 @@ def optimal_dim(double[:] X, int lag, int drange = 20):
         
     return np.argmax(var)
 
+@cython.boundscheck(False)
+@cython.wraparound(False)
+@cython.initializedcheck(False)
+def false_nearest_neighbors(double[:] X, float threshold, int lag, int drange=20, str metric="euclidean"):    
+    
+    assert threshold > 0 and type(threshold) == float, "The threshold must be a positive interger" 
+    
+    queries = np.zeros((X.shape[0]-lag*(drange-1), drange-1))
+    
+    cdef int i
+    cdef float[:,:] series
+    
+    for i in range(1,drange):
+        series = embed_series(X, i, 1)
+        kdt = KDTree(series, metric=metric)
+        queries[:,i-1] = kdt.query(series, k=2, return_distance=False)[:queries.shape[0],-1]
+        
+        if i > 1:
+            if (queries[:,i-2] != queries[:,i-1]).sum() / queries.shape[0] < threshold:
+                return(i)
+    
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
