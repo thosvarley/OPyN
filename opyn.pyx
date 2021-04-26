@@ -11,7 +11,7 @@ import numpy as np
 cimport numpy as np 
 import igraph as ig 
 from itertools import product, permutations
-from scipy.stats import entropy, pearsonr
+from scipy.stats import pearsonr
 from libc.math cimport log2
 from scipy.signal import argrelextrema
 from sklearn.neighbors import KDTree
@@ -193,6 +193,34 @@ def optimal_lag(double[:] X, int lrange, int step):
                 
     return extrema*step
 
+@cython.initializedcheck(False)
+def optimal_dim(double[:] X, int lag, str criteria = "maxvar", int drange = 20, float threshold = 0.1, str metric="euclidean"):
+    """
+    This wrapper function provides two criteria for selecting the optimal embedding dimension of a one-dimensional timeseries. 
+    
+    Arguments:
+        X:
+            A one-dimensional time-series Numpy array with dtype = "double."
+        lag:
+            The integer embedding lag.
+        criteria:
+            Either "maxvar" for the maximum variance in degree distribution criteria or "fnn" for false nearest neighbor criteria.
+            Defaults to "maxvar"
+        drange:
+            The range of possible emebedding dimensions to try.
+        threshold:
+            If the "fnn" criteria is selected, the false nearest neighbors threshold. 
+            Defaults to 0.1.
+        metric:
+            If the "fnn" criteria is selected, the distance metric used to find the nearest neighbors.
+            Defaults to "euclidean". 
+    """
+    assert criteria in {"fnn", "maxvar"}, "The allowable criteria are maxvar or fnn." 
+
+    if criteria == "maximum_varience":
+        return maximum_var(X=X, lag=lag, drange=drange)
+    elif criteria == "false_nearest_neighbors":
+        return false_nearest_neighbors(X=X, threshold=threshold, drange=drange, metric=metric)
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
@@ -232,7 +260,25 @@ def maximum_var(double[:] X, int lag, int drange = 20):
 @cython.wraparound(False)
 @cython.initializedcheck(False)
 def false_nearest_neighbors(double[:] X, float threshold, int lag, int drange=20, str metric="euclidean"):    
+    """
+    Returns the minimum embedding dimension d such that the proportion of false nearest neighbors
+    from d / d-1 embeddings is below the threshold. 
     
+    Arguments:
+        X:
+            A one-dimensional Numpy array with dtype = "double". The time-series.
+        threshold:
+            A floating point value - the threshold of false nearest neighbors.
+        lag:
+            The integer embedding lag.
+        drange:
+            The range of possible embedding dimensions to try, from 1...drange.
+        metric:
+            The distance metric used to find the nearest neighbors. 
+    Returns:
+        dim:
+            The smallest embedding dimension that satisfies the false nearest neighbors criteria.
+    """
     assert threshold > 0 and type(threshold) == float, "The threshold must be a positive interger" 
     
     queries = np.zeros((X.shape[0]-lag*(drange-1), drange-1))
@@ -371,3 +417,175 @@ def full_OPN_space(G):
     G = G.permute_vertices(perm)
     
     return G
+
+##################################
+### BASIC ANALYSES OF THE NETWORKS
+##################################
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+@cython.cdivision(True)
+@cython.initializedcheck(False)
+def entropy_production(G):
+    """
+    Returns the entropy produced by the process, estimated as the degree to which the transition 
+    probability matrix breaks the detailed balance critera. For an example of the application, see:
+        Lynn, C., Cornblath, E., Papadopoulos, L., Bertolero, M., & Bassett, D. (2020). 
+        Broken detailed balance and entropy production in the human brain,
+        arXiv:2005.02526
+    
+    Arguments:
+        G:
+            The OPN, in the form of a python-igraph graph.
+    
+    Returns:
+        entropy:
+            The entropy, in bits.
+    
+    """
+    
+    cdef double[:,:] transmat = np.array(list(G.get_adjacency(attribute="weight")))
+    cdef double entropy = 0.0
+    cdef int i, j
+    cdef double[:] sums = np.sum(transmat, axis=1)
+    
+    for i in range(transmat.shape[0]):
+        if sums[i] > 0.0:
+            for j in range(transmat.shape[0]):
+                transmat[i][j] = transmat[i][j] / sums[i]
+    
+    for i in range(transmat.shape[0]):
+        for j in range(transmat.shape[0]):
+            if transmat[i][j] != 0 and transmat[j][i] != 0:
+                entropy += transmat[i][j] * log2(transmat[i][j] / transmat[j][i])
+    
+    return entropy 
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+@cython.cdivision(True)
+@cython.initializedcheck(False)
+def determinism(G, bint norm = False):
+    """
+    Measures the degree to which the future of a system modeled by an OPN can be predicted given
+    the present. In determinism(G) = 1, then the future is perfectly predictable given the present.
+    
+    Based on work presented in:
+        Brennan Klein, Erik Hoel, "The Emergence of Informative Higher Scales in Complex Networks", 
+        Complexity, vol. 2020, Article ID 8932526, 12 pages, 2020. 
+        https://doi.org/10.1155/2020/8932526
+    
+    Arguments:
+        G:
+            The OPN, in the form of a python-igraph.
+        norm:
+            If true, normalizes the determinism onto the range 0-1
+    
+    Returns:
+        Determinism:
+            The determinism in bits (if norm == False).
+    """
+    cdef double[:,:] transmat = np.array(list(G.get_adjacency(attribute="weight")))
+    cdef double N = transmat.shape[0]
+    cdef int i, j
+    cdef double[:] sums = np.sum(transmat, axis=1)
+
+    for i in range(transmat.shape[0]):
+        if sums[i] > 0:
+            for j in range(transmat.shape[0]):
+                transmat[i][j] = transmat[i][j] / sums[i]
+        
+    cdef double avg_ent = 0.0
+    cdef double row_ent
+    
+    for i in range(transmat.shape[0]):
+        row_ent = 0
+        for j in range(transmat.shape[0]):
+            if transmat[i][j] > 0:
+                row_ent += transmat[i][j] * log2(transmat[i][j])
+        avg_ent += -1*row_ent
+        
+    avg_ent /= N
+    
+    if norm == False:
+        return log2(N) - avg_ent
+    elif norm == True:
+        return (log2(N) - avg_ent) / log2(N)
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+@cython.cdivision(True)
+@cython.initializedcheck(False)
+def degeneracy(G, bint norm = False):
+    """
+    Measures the degree to which information about the past is lost when different trajectories "run together". 
+    Closely related to the entropy production.
+    
+    Based on work presented in:
+        Brennan Klein, Erik Hoel, "The Emergence of Informative Higher Scales in Complex Networks", 
+        Complexity, vol. 2020, Article ID 8932526, 12 pages, 2020. 
+        https://doi.org/10.1155/2020/8932526
+    
+    Arguments:
+        G:
+            The OPN, in the form of a python-igraph.
+        norm:
+            If true, normalizes the degeneracy onto the range 0-1
+    
+    Returns:
+        Degeneracy:
+            The degeneracy in bits (if norm == False).
+    """
+    cdef double[:,:] transmat = np.array(list(G.get_adjacency(attribute="weight")))
+    cdef double N = transmat.shape[0]
+    cdef int i, j
+    cdef double[:] sums = np.sum(transmat, axis=1)
+
+    for i in range(transmat.shape[0]):
+        if sums[i] > 0:
+            for j in range(transmat.shape[0]):
+                transmat[i][j] = transmat[i][j] / sums[i]  
+    
+    cdef double[:] avg_row = np.sum(transmat, axis=0)
+    
+    cdef double ent = 0
+    
+    for i in range(avg_row.shape[0]):
+        ent += avg_row[i] * log2(avg_row[i])
+    ent *= -1
+    
+    if norm == False:
+        return log2(N) - ent
+    elif norm == True:
+        return (log2(N) - ent) / log2(N)
+
+@cython.initializedcheck(False)
+def effective_information(G, norm=False):
+    """
+    Measures the total amount of information the OPN encodes in it's causal structure.
+    
+    Based on work presented in:
+        Brennan Klein, Erik Hoel, "The Emergence of Informative Higher Scales in Complex Networks", 
+        Complexity, vol. 2020, Article ID 8932526, 12 pages, 2020. 
+        https://doi.org/10.1155/2020/8932526
+    
+    Arguments:
+        G:
+            The OPN, in the form of a python-igraph.
+        norm:
+            If true, normalizes the degeneracy onto the range 0-1
+    
+    Returns:
+        EI:
+            The EI in bits (if norm == False).
+    """
+    return determinism(G, norm=norm) - degeneracy(G, norm=norm)
+
+def permutation_entropy(series, norm=False):
+    
+    return None
+    
+
+X = np.cumsum(np.random.randn(1000))
+G, s = OPN(X, 3, 1)
+print(determinism(G, norm=True))

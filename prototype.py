@@ -15,6 +15,6 @@ X = np.cumsum(X)
 
 #%%
 
-from opyn import false_nearest_neighbors
+from opyn import OPN
 
-print(false_nearest_neighbors(X, 0.35, 1, metric="euclidean"))
+G, s = OPN(X, 4, 1)
