@@ -15,6 +15,7 @@ from scipy.stats import pearsonr
 from libc.math cimport log2
 from scipy.signal import argrelextrema
 from sklearn.neighbors import KDTree
+from collections import Counter
 
 
 @cython.boundscheck(False)
@@ -546,7 +547,7 @@ def degeneracy(G, bint norm = False):
             for j in range(transmat.shape[0]):
                 transmat[i][j] = transmat[i][j] / sums[i]  
     
-    cdef double[:] avg_row = np.sum(transmat, axis=0)
+    cdef double[:] avg_row = np.mean(transmat, axis=0)
     
     cdef double ent = 0
     
@@ -558,6 +559,7 @@ def degeneracy(G, bint norm = False):
         return log2(N) - ent
     elif norm == True:
         return (log2(N) - ent) / log2(N)
+
 
 @cython.initializedcheck(False)
 def effective_information(G, norm=False):
@@ -581,11 +583,42 @@ def effective_information(G, norm=False):
     """
     return determinism(G, norm=norm) - degeneracy(G, norm=norm)
 
+@cython.boundscheck(False)
+@cython.wraparound(False)
+@cython.cdivision(True)
+@cython.initializedcheck(False)
 def permutation_entropy(series, norm=False):
+    """
+
     
+    """
+    
+    cdef dict counts = dict(Counter(series))
+    cdef float N = series.shape[0]
+    cdef str key
+    cdef dict probs = {key : float(counts[key]) / N for key in counts.keys()}
+    
+    cdef float ent = 0.0
+    cdef int i
+    
+    for key in probs.keys():
+        ent += probs[key] * log2(probs[key])
+    
+    if norm == False:
+        return -1*ent
+    elif norm == True:
+        return (-1*ent) / log2(len(probs))
+
+def shannon_entropy_rate(G, series):
+    """
+    
+        Presented in:
+        Crutchfield, J. P. (2012). Between order and chaos. 
+        Nature Physics, 8(1), 17–24. 
+        https://doi.org/10.1038/nphys2190
+    """
     return None
-    
 
 X = np.cumsum(np.random.randn(1000))
 G, s = OPN(X, 3, 1)
-print(determinism(G, norm=True))
+print(permutation_entropy(s, norm=True))
