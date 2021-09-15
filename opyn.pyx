@@ -194,39 +194,10 @@ def optimal_lag(double[:] X, int lrange, int step):
                 
     return extrema*step
 
-@cython.initializedcheck(False)
-def optimal_dim(double[:] X, int lag, str criteria = "maxvar", int drange = 20, float threshold = 0.1, str metric="euclidean"):
-    """
-    This wrapper function provides two criteria for selecting the optimal embedding dimension of a one-dimensional timeseries. 
-    
-    Arguments:
-        X:
-            A one-dimensional time-series Numpy array with dtype = "double."
-        lag:
-            The integer embedding lag.
-        criteria:
-            Either "maxvar" for the maximum variance in degree distribution criteria or "fnn" for false nearest neighbor criteria.
-            Defaults to "maxvar"
-        drange:
-            The range of possible emebedding dimensions to try.
-        threshold:
-            If the "fnn" criteria is selected, the false nearest neighbors threshold. 
-            Defaults to 0.1.
-        metric:
-            If the "fnn" criteria is selected, the distance metric used to find the nearest neighbors.
-            Defaults to "euclidean". 
-    """
-    assert criteria in {"fnn", "maxvar"}, "The allowable criteria are maxvar or fnn." 
-
-    if criteria == "maximum_varience":
-        return maximum_var(X=X, lag=lag, drange=drange)
-    elif criteria == "false_nearest_neighbors":
-        return false_nearest_neighbors(X=X, threshold=threshold, drange=drange, metric=metric)
-
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.initializedcheck(False)
-def maximum_var(double[:] X, int lag, int drange = 20):
+def optimal_dim(double[:] X, int lag, int drange = 20):
     """
     Returns the embedding dimension that maximizes the variange in the degree distribution of the resulting OPN.
     A proxy for the optimal embedding dimension. See:
@@ -249,12 +220,11 @@ def maximum_var(double[:] X, int lag, int drange = 20):
     """
     cdef double[:] var = np.zeros(drange)
     cdef int i 
-    
+
     for i in range(2, drange):
-        if X.shape[0] - lag*(i-1) > 0:
-            G, s = OPN(X, i, lag)
-            var[i] = np.var(G.degree())
-        
+        G, s = OPN(X, i, lag)
+        var[i] = np.var(G.degree())
+
     return np.argmax(var)
 
 @cython.boundscheck(False)
@@ -618,7 +588,3 @@ def shannon_entropy_rate(G, series):
         https://doi.org/10.1038/nphys2190
     """
     return None
-
-X = np.cumsum(np.random.randn(1000))
-G, s = OPN(X, 3, 1)
-print(permutation_entropy(s, norm=True))
