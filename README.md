@@ -1,42 +1,34 @@
 # OPyN
-A Python package for construction and analysis of ordinal partition networks from time-series data.
+A Python package for construction and analysis of ordinal partition networks and computation of the permutation entropy from time-series data.
+
+For details on permutation entropy, see:
+
+```
+Bandt, C., & Pompe, B. (2002). Permutation Entropy: A Natural Complexity Measure for Time Series. Physical Review Letters, 88(17), Article 17. https://doi.org/10.1103/PhysRevLett.88.174102
+```
+
+For ordinal partition networks, see:
+
+```
+McCullough, M., Small, M., & Iu, H. H.-C. (2015). Measuring the Complexity of Time Series Using Ordinal Partition Networks. 4.
+
+McCullough, M., Small, M., Stemler, T., & Iu, H. H.-C. (2015). Time lagged ordinal partition networks for capturing dynamics of continuous dynamical systems. Chaos: An Interdisciplinary Journal of Nonlinear Science, 25(5), Article 5. https://doi.org/10.1063/1.4919075
+
+```
 
 ### Dependencies:
- - Python-iGraph (v. 0.7.1 or newer)
- - Numpy (v. 1.13.3 or newer)
- - Scipy (v. 1.3.1 or newer)
- - Itertools
- - Cython 
+ - igraph
+ - numpy
+ - scipy
+ - scikit-learn
+ - cython 
 
 ### Installation:
-- Download OPyN to your target directory. 
-- Run ```python setup.py install```
+run ``./install.sh``
 
+### Citation:
 
-## Functions:
-
-```perm_embedding(ts, dim, lag)```
-
-Peforms a permutaiton embedding on the given timeseries (```ts```) using an embedding dimension ```dim``` and lag of ```lag```. The time-series must be a one-dimensional Numpy array with dtype of "double." The embedding dimension and lag must both be integers.  
-
-```OPN(ts, dim, lag)```
-
-Constructs the ordinal partition network from the given timeseries, embedding dimension, and lag. Returns ```G```, a Python-iGraph network, as well as the embedded timeseries. The type-constraints are the same as in the permutation embedding function.
-
-```optimal_lag(ts, lrange=25)```
-
-Given some time-series, this function finds the optimal lag as the first zero of the pearson autocorrelation function. By default it sweeps lags 1-25. 
-
-```optimal_dim(ts, lag, lrange=20)```
-
-Given some time-series and a pre-selected lag, returns the embedding dimension where the variance of the resulting degree distribution is the largest. This is generally considered to be a reasonable approximation of the optimal embedding dimension. 
-
-```constrained_walk(G, lag, steps)```
-
-Given an OPN ```G```, constructed with a given lag, this will peform a constrained random walk on the network to produce surrogate discrete time-series with a pre-defined number of steps. If such a walk cannot be found, returns a ```None``` type. 
-Algorithm taken from:
-
-```McCullough, M., Sakellariou, K., Stemler, T., & Small, M. (2017). Regenerating time series from ordinal networks. Chaos: An Interdisciplinary Journal of Nonlinear Science, 27(3), 035814. https://doi.org/10.1063/1.4978743```
-
-## Cited By:
-```Varley, T. F., Denny, V., Sporns, O., & Patania, A. (2020). Topological Analysis of Differential Effects of Ketamine and Propofol Anesthesia on Brain Dynamics. BioRxiv, 2020.04.04.025437. https://doi.org/10.1101/2020.04.04.025437```
+If you use OPyN in a publication, please cite:
+```
+Varley, T. F., & Sporns, O. (2022). Network Analysis of Time Series: Novel Approaches to Network Neuroscience. Frontiers in Neuroscience, 15. https://www.frontiersin.org/article/10.3389/fnins.2021.787068
+```

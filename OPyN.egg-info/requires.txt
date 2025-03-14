@@ -1,0 +1,5 @@
+numpy
+cython
+igraph
+scipy
+scikit-learn

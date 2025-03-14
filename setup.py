@@ -5,11 +5,20 @@ Created on Thu Nov 14 15:21:28 2019
 
 @author: thosvarley
 """
-from distutils.core import setup, Extension
+
+from setuptools import setup, Extension, find_packages
 from Cython.Build import cythonize
-import numpy
+import numpy as np
+
+extensions = [
+    Extension("OPyN", ["OPyN/opyn.pyx"], 
+              include_dirs=[np.get_include()])
+]
 
 setup(
-    ext_modules=cythonize("opyn.pyx", annotate = True),
-    include_dirs=[numpy.get_include()]
+    name="OPyN",
+    version="0.1",
+    ext_modules=cythonize(extensions, language_level="3"),
+    zip_safe=False,
+    packages=find_packages(exclude=("tutorial",))
 )

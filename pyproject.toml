@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools", "wheel", "Cython", "numpy"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "OPyN"
+authors = [
+    { name="Thomas F. Varley", email="tfvarley@uvm.edu" },
+]
+maintainers = [
+    { name="Thomas F. Varley", email="tfvarley@uvm.edu" },
+]
+description = "A package for construction and analysis of ordinal partition network models of univariate time series."
+readme = "README.md"
+version = "0.1"
+requires-python = ">=3.8"
+dependencies = [
+    "numpy",
+    "cython", 
+    "igraph",
+    "scipy",
+    "scikit-learn"
+]

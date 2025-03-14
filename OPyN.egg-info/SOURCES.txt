@@ -1,0 +1,11 @@
+LICENSE
+README.md
+pyproject.toml
+setup.py
+OPyN/opyn.c
+OPyN.egg-info/PKG-INFO
+OPyN.egg-info/SOURCES.txt
+OPyN.egg-info/dependency_links.txt
+OPyN.egg-info/not-zip-safe
+OPyN.egg-info/requires.txt
+OPyN.egg-info/top_level.txt
